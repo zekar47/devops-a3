@@ -1,0 +1,275 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Infraestructura para Proyecto Escolar - Matricula AL02992400. VPCs Dev y Prod.'
+
+Parameters:
+  KeyName:
+    Description: Nombre de tu KeyPair existente para SSH
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: vockey
+
+Resources:
+  # =====================================================
+  # VPC DESARROLLO (vpc-dev-AL02992400)
+  # =====================================================
+  VPCDev:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: vpc-dev-AL02992400
+        - Key: Environment
+          Value: Development
+        - Key: Owner
+          Value: AL02992400
+
+  SubnetDevPub:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPCDev
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: subnet-dev-pub-AL02992400
+
+  SubnetDevPriv:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPCDev
+      CidrBlock: 10.0.2.0/24
+      Tags:
+        - Key: Name
+          Value: subnet-dev-priv-AL02992400
+
+  IGWDev:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: igw-dev-AL02992400
+
+  AttachIGWDev:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPCDev
+      InternetGatewayId: !Ref IGWDev
+
+  RTDevPub:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPCDev
+      Tags:
+        - Key: Name
+          Value: rt-dev-pub-AL02992400
+
+  RouteDevPub:
+    Type: AWS::EC2::Route
+    DependsOn: AttachIGWDev
+    Properties:
+      RouteTableId: !Ref RTDevPub
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref IGWDev
+
+  SubnetRTAssocDevPub:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetDevPub
+      RouteTableId: !Ref RTDevPub
+
+  # Security Groups Dev
+  SGDevAdmin:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH from Internet
+      VpcId: !Ref VPCDev
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: sg-dev-admin-AL02992400
+
+  SGDevApp:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH only from Admin EC2
+      VpcId: !Ref VPCDev
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          SourceSecurityGroupId: !Ref SGDevAdmin
+      Tags:
+        - Key: Name
+          Value: sg-dev-app-AL02992400
+
+  # Instancias Dev
+  EC2DevAdmin:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-098e39bafa7e7303d
+      KeyName: !Ref KeyName
+      SubnetId: !Ref SubnetDevPub
+      SecurityGroupIds: [!Ref SGDevAdmin]
+      IamInstanceProfile: LabInstanceProfile
+      Tags:
+        - Key: Name
+          Value: dev-admin-AL02992400
+        - Key: Environment
+          Value: Development
+
+  EC2DevApp:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-098e39bafa7e7303d
+      KeyName: !Ref KeyName
+      SubnetId: !Ref SubnetDevPriv
+      SecurityGroupIds: [!Ref SGDevApp]
+      Tags:
+        - Key: Name
+          Value: dev-app-AL02992400
+        - Key: Environment
+          Value: Development
+
+  # =====================================================
+  # VPC PRODUCCION (vpc-prod-AL02992400)
+  # =====================================================
+  VPCProd:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.1.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: vpc-prod-AL02992400
+        - Key: Environment
+          Value: Production
+        - Key: Owner
+          Value: AL02992400
+
+  SubnetProdPub:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPCProd
+      CidrBlock: 10.1.1.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: subnet-prod-pub-AL02992400
+
+  SubnetProdPriv:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPCProd
+      CidrBlock: 10.1.2.0/24
+      Tags:
+        - Key: Name
+          Value: subnet-prod-priv-AL02992400
+
+  IGWProd:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: igw-prod-AL02992400
+
+  AttachIGWProd:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPCProd
+      InternetGatewayId: !Ref IGWProd
+
+  RTProdPub:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPCProd
+      Tags:
+        - Key: Name
+          Value: rt-prod-pub-AL02992400
+
+  RouteProdPub:
+    Type: AWS::EC2::Route
+    DependsOn: AttachIGWProd
+    Properties:
+      RouteTableId: !Ref RTProdPub
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref IGWProd
+
+  SubnetRTAssocProdPub:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetProdPub
+      RouteTableId: !Ref RTProdPub
+
+  # Security Groups Prod
+  SGProdAdmin:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH from Internet
+      VpcId: !Ref VPCProd
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: sg-prod-admin-AL02992400
+
+  SGProdApp:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH only from Admin EC2
+      VpcId: !Ref VPCProd
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          SourceSecurityGroupId: !Ref SGProdAdmin
+      Tags:
+        - Key: Name
+          Value: sg-prod-app-AL02992400
+
+  # Instancias Prod
+  EC2ProdAdmin:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-098e39bafa7e7303d
+      KeyName: !Ref KeyName
+      SubnetId: !Ref SubnetProdPub
+      SecurityGroupIds: [!Ref SGProdAdmin]
+      IamInstanceProfile: LabInstanceProfile
+      Tags:
+        - Key: Name
+          Value: prod-admin-AL02992400
+        - Key: Environment
+          Value: Production
+
+  EC2ProdApp:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-098e39bafa7e7303d
+      KeyName: !Ref KeyName
+      SubnetId: !Ref SubnetProdPriv
+      SecurityGroupIds: [!Ref SGProdApp]
+      Tags:
+        - Key: Name
+          Value: prod-app-AL02992400
+        - Key: Environment
+          Value: Production
+
+Outputs:
+  DevAdminPublicIP:
+    Value: !GetAtt EC2DevAdmin.PublicIp
+  ProdAdminPublicIP:
+    Value: !GetAtt EC2ProdAdmin.PublicIp
